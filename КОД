@@ -1,0 +1,117 @@
+def main():
+    print("╔════════════════════════════════════╗")
+    print("║      ДОМИНО: ПРОВЕРКА ЦЕПИ        ║")
+    print("╚════════════════════════════════════╝")
+    print("Введите кости домино через запятую (например: 12, 34, 56)")
+
+    while True:
+        try:
+            input_str = input("> ").strip()
+            if not input_str:
+                print("Ошибка: введите хотя бы одну кость!")
+                continue
+
+            #очистка и проверка ввода
+            dominoes = [d.strip() for d in input_str.split(",")]
+            dominoes = [d for d in dominoes if d]  # Удаляем пустые
+
+            #проверка IQ пользователя
+            error = check_dominoes(dominoes)
+            if error:
+                print(f"Ошибка: {error}")
+                continue
+
+            #проверка цепи
+            result = solve_domino_chain(dominoes)
+            print("\nРезультат:")
+            print("╔" + "═" * (len(result) + 2) + "╗")
+            print(f"║ {result} ║")
+            print("╚" + "═" * (len(result) + 2) + "╝\n")
+
+        except KeyboardInterrupt:
+            print("\nПрограмма завершена.")
+            break
+        except Exception as e:
+            print(f"Неожиданная ошибка: {e}")
+
+
+def check_dominoes(dominoes):
+    #Пустой ввод
+    if not dominoes:
+        return "не введено ни одной кости"
+
+    seen = set()
+    for d in dominoes:
+        #Длина кости
+        if len(d) != 2:
+            return f"кость '{d}' должна состоять из 2 цифр"
+
+        #Только цифры
+        if not d.isdigit():
+            return f"кость '{d}' содержит недопустимые символы"
+
+        #Диапазон значений
+        a, b = map(int, d)
+        if not (0 <= a <= 6 and 0 <= b <= 6):
+            return f"кость '{d}' содержит недопустимые значения (допустимы 0-6)"
+
+        #Дубликаты (с учетом перевернутых)
+        norm = d if a <= b else d[::-1]
+        if norm in seen:
+            return f"найдены дубликаты кости '{norm}'"
+        seen.add(norm)
+
+    return None
+
+
+def solve_domino_chain(dominoes):
+    # Построение графа
+    graph = {}
+    degrees = {}
+    for d in dominoes:
+        a, b = map(int, d)
+        graph.setdefault(a, []).append(b)
+        graph.setdefault(b, []).append(a)
+        degrees[a] = degrees.get(a, 0) + 1
+        degrees[b] = degrees.get(b, 0) + 1
+
+    #Нечетныу вершины
+    odd_nodes = [node for node in degrees if degrees[node] % 2 != 0]
+
+    #Проверка цепи
+    if len(odd_nodes) not in (0, 2):
+        return "нельзя выложить в ряд"
+
+    start = odd_nodes[0] if odd_nodes else next(iter(degrees), None)
+
+    #Эйлерова 
+    path = []
+    stack = [start]
+    while stack:
+        current = stack[-1]
+        if graph.get(current):
+            next_node = graph[current].pop()
+            graph[next_node].remove(current)
+            stack.append(next_node)
+        else:
+            path.append(stack.pop())
+
+    #восст-е последовательности
+    result = []
+    used = set()
+    for i in range(len(path) - 1):
+        a, b = path[i], path[i + 1]
+        for d in dominoes:
+            if d in used:
+                continue
+            x, y = map(int, d)
+            if (x == a and y == b) or (y == a and x == b):
+                result.append(d if x == a else d[::-1])
+                used.add(d)
+                break
+
+    return "можно: " + ", ".join(result) if result else "нельзя выложить в ряд"
+
+
+if __name__ == "__main__":
+    main()
