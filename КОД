@@ -1,117 +1,237 @@
-def main():
-    print("╔════════════════════════════════════╗")
-    print("║      ДОМИНО: ПРОВЕРКА ЦЕПИ        ║")
-    print("╚════════════════════════════════════╝")
-    print("Введите кости домино через запятую (например: 12, 34, 56)")
+class Domino:
+    #класс для кости и проверки на дурака
 
-    while True:
-        try:
-            input_str = input("> ").strip()
-            if not input_str:
-                print("Ошибка: введите хотя бы одну кость!")
-                continue
+    def __init__(self, value):
+        self.value = value
+        self._validate()
 
-            #очистка и проверка ввода
-            dominoes = [d.strip() for d in input_str.split(",")]
-            dominoes = [d for d in dominoes if d]  # Удаляем пустые
-
-            #проверка IQ пользователя
-            error = check_dominoes(dominoes)
-            if error:
-                print(f"Ошибка: {error}")
-                continue
-
-            #проверка цепи
-            result = solve_domino_chain(dominoes)
-            print("\nРезультат:")
-            print("╔" + "═" * (len(result) + 2) + "╗")
-            print(f"║ {result} ║")
-            print("╚" + "═" * (len(result) + 2) + "╝\n")
-
-        except KeyboardInterrupt:
-            print("\nПрограмма завершена.")
-            break
-        except Exception as e:
-            print(f"Неожиданная ошибка: {e}")
-
-
-def check_dominoes(dominoes):
-    #Пустой ввод
-    if not dominoes:
-        return "не введено ни одной кости"
-
-    seen = set()
-    for d in dominoes:
-        #Длина кости
-        if len(d) != 2:
-            return f"кость '{d}' должна состоять из 2 цифр"
-
-        #Только цифры
-        if not d.isdigit():
-            return f"кость '{d}' содержит недопустимые символы"
-
-        #Диапазон значений
-        a, b = map(int, d)
+    def _validate(self):
+        #проверка корректности
+        if len(self.value) != 2 or not self.value.isdigit():
+            raise ValueError(f"Некорректная кость: {self.value}")
+        a, b = map(int, self.value)
         if not (0 <= a <= 6 and 0 <= b <= 6):
-            return f"кость '{d}' содержит недопустимые значения (допустимы 0-6)"
+            raise ValueError(f"Значения кости {self.value} должны быть от 0 до 6")
 
-        #Дубликаты (с учетом перевернутых)
-        norm = d if a <= b else d[::-1]
-        if norm in seen:
-            return f"найдены дубликаты кости '{norm}'"
-        seen.add(norm)
+    def normalized(self):
+        #Возвращает нормализованное представление (меньшее число первое)
+        a, b = map(int, self.value)
+        return self.value if a <= b else self.value[::-1]
 
-    return None
+    def __str__(self):
+        return self.value
 
 
-def solve_domino_chain(dominoes):
-    # Построение графа
-    graph = {}
-    degrees = {}
-    for d in dominoes:
-        a, b = map(int, d)
-        graph.setdefault(a, []).append(b)
-        graph.setdefault(b, []).append(a)
-        degrees[a] = degrees.get(a, 0) + 1
-        degrees[b] = degrees.get(b, 0) + 1
+class DominoSet:
+    #класс для работы с набором костей домино
 
-    #Нечетныу вершины
-    odd_nodes = [node for node in degrees if degrees[node] % 2 != 0]
+    def __init__(self):
+        self.dominoes = []
+        self._unique_check = set()
 
-    #Проверка цепи
-    if len(odd_nodes) not in (0, 2):
-        return "нельзя выложить в ряд"
+    def add_domino(self, domino_value):
+        #проверка на повторение костей
+        domino = Domino(domino_value)
+        norm = domino.normalized()
 
-    start = odd_nodes[0] if odd_nodes else next(iter(degrees), None)
+        if norm in self._unique_check:
+            raise ValueError(f"Дубликат кости: {norm}")
 
-    #Эйлерова 
-    path = []
-    stack = [start]
-    while stack:
-        current = stack[-1]
-        if graph.get(current):
-            next_node = graph[current].pop()
-            graph[next_node].remove(current)
-            stack.append(next_node)
-        else:
-            path.append(stack.pop())
+        self.dominoes.append(domino)
+        self._unique_check.add(norm)
 
-    #восст-е последовательности
-    result = []
-    used = set()
-    for i in range(len(path) - 1):
-        a, b = path[i], path[i + 1]
-        for d in dominoes:
-            if d in used:
-                continue
-            x, y = map(int, d)
-            if (x == a and y == b) or (y == a and x == b):
-                result.append(d if x == a else d[::-1])
-                used.add(d)
+    def validate(self):
+        #проверка количества
+        if not self.dominoes:
+            raise ValueError("Не введено ни одной кости")
+
+    def get_dominoes(self):
+        return self.dominoes
+
+
+class DominoGraph:
+    #класс для представления графа домино и поиска пути
+
+    def __init__(self, dominoes):
+        self.graph = {}
+        self.degrees = {}
+        self._build_graph(dominoes)
+
+    def _build_graph(self, dominoes):
+        #строительство графа смежности и подсчет степени вершин
+        for domino in dominoes:
+            a, b = map(int, domino.value)
+            self._add_edge(a, b)
+            self._add_edge(b, a)
+
+    def _add_edge(self, a, b):
+        #доб ребро графа
+        if a not in self.graph:
+            self.graph[a] = []
+        self.graph[a].append(b)
+        self.degrees[a] = self.degrees.get(a, 0) + 1
+
+    def find_eulerian_path(self):
+        #йлеров путь
+        odd_nodes = self._find_odd_degree_nodes()
+
+        if not self._has_eulerian_path(odd_nodes):
+            return None
+
+        start_node = self._get_start_node(odd_nodes)
+        return self._find_path(start_node)
+
+    def _find_odd_degree_nodes(self):
+        #ершины с нечет степенью
+        return [node for node in self.degrees if self.degrees[node] % 2 != 0]
+
+    def _has_eulerian_path(self, odd_nodes):
+        #условия сущ пути
+        return len(odd_nodes) in (0, 2)
+
+    def _get_start_node(self, odd_nodes):
+        #нач вершина для описка пути
+        return odd_nodes[0] if odd_nodes else next(iter(self.degrees), None)
+
+    def _find_path(self, start_node):
+        #ищет путь на основе стека
+        path = []
+        stack = [start_node]
+        temp_graph = {k: v.copy() for k, v in self.graph.items()}
+
+        while stack:
+            current = stack[-1]
+            if temp_graph.get(current):
+                next_node = temp_graph[current].pop()
+                temp_graph[next_node].remove(current)
+                stack.append(next_node)
+            else:
+                path.append(stack.pop())
+
+        return path[::-1]
+
+
+class DominoChainBuilder:
+    #цепь из набора домино
+
+    def __init__(self, domino_set):
+        self.domino_set = domino_set
+        self.dominoes = domino_set.get_dominoes()
+
+    def build_chain(self):
+        #пострйока цепи домино
+        graph = DominoGraph(self.dominoes)
+        path = graph.find_eulerian_path()
+
+        if not path:
+            return None
+
+        return self._reconstruct_chain(path)
+
+    def _reconstruct_chain(self, path):
+        #Восстановление последовательность костей по пути в графе
+        chain = []
+        used = [False] * len(self.dominoes)
+
+        for i in range(len(path) - 1):
+            a, b = path[i], path[i + 1]
+            domino = self._find_matching_domino(a, b, used)
+            if domino:
+                chain.append(domino)
+
+        return chain if len(chain) == len(self.dominoes) else None
+
+    def _find_matching_domino(self, a, b, used):
+    #Находит подходящую неиспользованную кость
+        for i, domino in enumerate(self.dominoes):
+            if not used[i]:
+                x, y = map(int, domino.value)
+                if (x == a and y == b):
+                    used[i] = True
+                    return domino.value
+                if (y == a and x == b):
+                    used[i] = True
+                    return domino.value[::-1]
+        return None
+
+
+class DominoGame:
+    #основной класс игры
+
+    def __init__(self):
+        self.domino_set = DominoSet()
+        self.ui = DominoUI(self)
+
+    def run(self):
+        #игровой цикл начало
+        self.ui.show_welcome()
+        self.ui.main_loop()
+
+    def process_input(self, input_str):
+        #ввод пользователя
+        self.domino_set = DominoSet()  # Сбрасываем набор
+
+        for d in input_str.split(","):
+            if d.strip():
+                self.domino_set.add_domino(d.strip())
+
+        self.domino_set.validate()
+
+        builder = DominoChainBuilder(self.domino_set)
+        chain = builder.build_chain()
+
+        return chain
+
+
+class DominoUI:
+    #взаим с пользв
+
+    def __init__(self, game):
+        self.game = game
+
+    def show_welcome(self):
+        print("╔════════════════════════════════════╗")
+        print("║      ДОМИНО: ПРОВЕРКА ЦЕПИ        ║")
+        print("╚════════════════════════════════════╝")
+        print("Введите кости домино через запятую (например: 12, 34, 56)")
+
+    def main_loop(self):
+        #ввод вывад
+        while True:
+            try:
+                input_str = self._get_user_input()
+                if not input_str:
+                    continue
+
+                chain = self.game.process_input(input_str)
+                self._show_result(chain)
+
+            except ValueError as e:
+                print(f"Ошибка: {e}")
+            except KeyboardInterrupt:
+                print("\nИгра завершена.")
                 break
+            except Exception as e:
+                print(f"Неожиданная ошибка: {e}")
 
-    return "можно: " + ", ".join(result) if result else "нельзя выложить в ряд"
+    def _get_user_input(self):
+        #ввод от польз
+        input_str = input("> ").strip()
+        if not input_str:
+            print("Ошибка: введите хотя бы одну кость!")
+        return input_str
+
+    def _show_result(self, chain):
+        #реузльтатыыыыы
+        if chain:
+            result = "Можно: " + ", ".join(chain)
+            border = "═" * (len(result) + 2)
+            print(f"\nРезультат:\n╔{border}╗\n║ {result} ║\n╚{border}╝\n")
+        else:
+            print("\nРезультат: Нельзя выложить в ряд\n")
 
 
+# Запуск игры
 if __name__ == "__main__":
-    main()
+    game = DominoGame()
+    game.run()
