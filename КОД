@@ -1,15 +1,15 @@
 class DominoNode:
-    #узел двусвязного списка для хранения кости домино"""
+    #узел двусвязного списка для хранения кости домино
 
     def __init__(self, value):
-        self.value = value  # значение кости (например, "12")
-        self.prev = None  # ссылка на предыдущий узел
-        self.next = None  # ссылка на следующий узел
-        self.used = False  # флаг использования в цепи
+        self.value = value 
+        self.prev = None  
+        self.next = None  
+        self.used = False 
 
 
 class DominoLinkedList:
-    #класс двусвязного списка для хранения набора костей домино"""
+    #класс двусвязного списка для хранения набора костей домино
 
     def __init__(self):
         self.head = None
@@ -17,7 +17,7 @@ class DominoLinkedList:
         self.length = 0
 
     def add(self, value):
-        # добавление кости в конец списка
+        #добавление кости в конец списка
         new_node = DominoNode(value)
 
         if not self.head:
@@ -30,7 +30,7 @@ class DominoLinkedList:
         self.length += 1
 
     def find(self, a, b):
-        # поиск кости с заданными значениями (прямого или перевернутого варианта)
+        #поиск кости с заданными значениями 
         current = self.head
         while current:
             x, y = map(int, current.value)
@@ -59,7 +59,7 @@ class DominoChainSolver:
         return graph
 
     def _find_eulerian_path(self):
-        # поиск эйлерова пути
+        #поиск эйлерова пути
         degrees = {node: len(edges) for node, edges in self.graph.items()}
         odd_nodes = [node for node in degrees if degrees[node] % 2 != 0]
 
@@ -83,7 +83,7 @@ class DominoChainSolver:
         return path[::-1] if len(path) == self.linked_list.length + 1 else None
 
     def solve(self):
-        # проверка возможности построения цепи
+        #проверка возможности построения цепи
         path = self._find_eulerian_path()
         if not path:
             return None
@@ -134,7 +134,7 @@ class DominoGame:
                 print(f"Неожиданная ошибка: {e}")
 
     def _process_input(self, input_str):
-        # обработка ввода пользователя
+        #обработка ввода пользователя
         self.list = DominoLinkedList()  # сброс предыдущего списка
 
         for item in input_str.split(","):
@@ -152,12 +152,12 @@ class DominoGame:
             raise ValueError("Не введено ни одной кости")
 
     def _solve_chain(self):
-        # попытка построить цепь
+        #попытка построить цепь
         solver = DominoChainSolver(self.list)
         return solver.solve()
 
     def _print_result(self, chain):
-        # вывод результата
+        #вывод результата
         if chain:
             result = "Можно: " + ", ".join(chain)
             border = "═" * (len(result) + 2)
